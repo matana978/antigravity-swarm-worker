@@ -1,0 +1,25 @@
+name: Antigravity Swarm Worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Run every 5 minutes
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  run-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Run Worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python worker.py
