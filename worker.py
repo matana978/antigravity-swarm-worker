@@ -1,30 +1,36 @@
-import subprocess
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+
+import requests
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://ayhplxbihuyimtrzimrh.supabase.co")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
+_session = requests.Session()
+_session.headers.update({
+    "apikey": SERVICE_KEY,
+    "Authorization": f"Bearer {SERVICE_KEY}",
+    "Content-Type": "application/json",
+})
+
 def supabase_request(method, endpoint, data=None):
-    """Make a Supabase REST API request via curl."""
-    cmd = ["curl", "-s", "-X", method, f"{SUPABASE_URL}/rest/v1/{endpoint}",
-           "-H", f"apikey: {SERVICE_KEY}",
-           "-H", f"Authorization: Bearer {SERVICE_KEY}",
-           "-H", "Content-Type: application/json"]
-    if method in ["POST", "PATCH"]:
-        cmd.extend(["-H", "Prefer: resolution=merge-duplicates"])
-    if data:
-        cmd.extend(["-d", json.dumps(data)])
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    """Make a Supabase REST API request."""
+    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    headers = {}
+    if method in ("POST", "PATCH"):
+        headers["Prefer"] = "resolution=merge-duplicates"
+    response = _session.request(method, url, json=data, headers=headers, timeout=15)
+    if not response.text.strip():
+        return None
     try:
-        return json.loads(result.stdout) if result.stdout.strip() else None
-    except:
-        return result.stdout
+        return response.json()
+    except (json.JSONDecodeError, ValueError):
+        return response.text
 
 def keepalive():
     """Ping Supabase to prevent project pausing."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     supabase_request("POST", "agent_memory", {
         "agent_id": "gh_worker",
         "key": "last_ping",
@@ -35,7 +41,7 @@ def keepalive():
 def process_tasks():
     """Check task_queue for pending tasks and process them."""
     tasks = supabase_request("GET", "task_queue?status=eq.pending&order=priority.asc&limit=10")
-    if not tasks or not isinstance(tasks, list) or len(tasks) == 0:
+    if not tasks or not isinstance(tasks, list):
         return 0
 
     processed = 0
@@ -48,7 +54,7 @@ def process_tasks():
         # Mark as running
         supabase_request("PATCH", f"task_queue?id=eq.{task_id}", {
             "status": "running",
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         })
 
         try:
@@ -63,7 +69,7 @@ def process_tasks():
             # Mark as done
             supabase_request("PATCH", f"task_queue?id=eq.{task_id}", {
                 "status": "done",
-                "completed_at": datetime.utcnow().isoformat()
+                "completed_at": datetime.now(timezone.utc).isoformat()
             })
             processed += 1
         except Exception as e:
@@ -77,6 +83,10 @@ def main():
     print("🤖 Antigravity Swarm Worker (GitHub Actions Edge)")
     print(f"   Supabase: {SUPABASE_URL}")
     print()
+
+    if not SERVICE_KEY:
+        print("  ❌ SUPABASE_SERVICE_KEY is not set. Exiting.")
+        return
 
     # Always send keepalive
     keepalive()
