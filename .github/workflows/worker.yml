@@ -17,6 +17,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Run Worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
