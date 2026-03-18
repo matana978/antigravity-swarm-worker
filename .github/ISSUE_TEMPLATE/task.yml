@@ -1,0 +1,58 @@
+name: "🤖 HIVE Task"
+description: "Add a new task type or feature to the Swarm Worker — assign to Copilot to implement automatically"
+title: "HIVE: "
+labels: ["copilot"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Tip:** After submitting, assign this issue to `@copilot` and it will open a PR automatically.
+
+  - type: input
+    id: task_type
+    attributes:
+      label: Task Type Name
+      description: The `task_type` string that will appear in `task_queue` (snake_case)
+      placeholder: "e.g. run_script, notify_slack, sync_memory"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What should this task do?
+      description: Describe the behavior clearly. What input does it receive from `payload`? What should it do? What should it write back?
+      placeholder: |
+        When task_type == "notify_slack", the payload contains {"channel": "...", "message": "..."}.
+        The handler should POST to the Slack webhook URL stored in agent_memory under key "slack_webhook".
+    validations:
+      required: true
+
+  - type: textarea
+    id: payload_schema
+    attributes:
+      label: Payload Schema (JSON example)
+      description: Example payload that this task type expects
+      render: json
+      placeholder: |
+        {
+          "channel": "#hive-status",
+          "message": "Worker completed 5 tasks"
+        }
+
+  - type: textarea
+    id: success_condition
+    attributes:
+      label: Success Condition
+      description: How do we know the task succeeded?
+      placeholder: "Slack API returns 200, message appears in channel"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Implementation Checklist
+      options:
+        - label: Add handler in `process_tasks()` in `worker.py`
+        - label: Handle errors gracefully (set status to `failed` with error message)
+        - label: Add any new pip dependencies to `requirements.txt`
